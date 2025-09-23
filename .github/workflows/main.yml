@@ -18,40 +18,31 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-            git curl bc bison flex \
+            git wget curl bc bison flex \
             gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi \
             libssl-dev build-essential lld llvm \
             python3 python3-pip zip unzip cpio jq
 
-      - name: Setup Clang from custom URL
+      - name: Setup Clang (r563880b)
         run: |
-          mkdir -p prebuilts-master/clang/host/linux-x86
-          cd prebuilts-master/clang/host/linux-x86
-          wget -q https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/531a564ba5426707dee226eccb19f104a7af5a5f/clang-r563880c.tar.gz -O clang-r563880c.tar.gz
-          tar -xf clang-r563880c.tar.gz
-          mv +archive* clang-r563880c
-          cd ../../../../
+          mkdir -p prebuilts-master/clang/host/linux-x86/clang-r563880b
+          cd prebuilts-master/clang/host/linux-x86/clang-r563880b
+          wget -q https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/67af9f576276f27363074c4388e2cf0963bab6df/clang-r563880b.tar.gz -O clang-r563880b.tar.gz
+          tar -xf clang-r563880b.tar.gz
+          rm clang-r563880b.tar.gz
+          cd ../../../../../
 
       - name: Build Kernel (Image.gz)
         run: |
-          export ARCH=arm64
-          export SUBARCH=arm64
-          export CC=clang
-          export CROSS_COMPILE=aarch64-linux-gnu-
-          export CROSS_COMPILE_ARM32=arm-linux-gnueabi-
-          export LD=ld.lld
-          export AR=llvm-ar
-          export NM=llvm-nm
-          export OBJCOPY=llvm-objcopy
-          export OBJDUMP=llvm-objdump
-          export STRIP=llvm-strip
-
-          mkdir -p out
-          make O=out gki_defconfig vendor/marble_GKI.config
-          make -j$(nproc) O=out Image.gz
+          export PATH=$(pwd)/prebuilts-master/clang/host/linux-x86/clang-r563880b/bin:$PATH
+          make O=out ARCH=arm64 marble_defconfig
+          make O=out ARCH=arm64 CC=clang -j$(nproc)
 
       - name: Upload kernel artifacts
         uses: actions/upload-artifact@v4
         with:
           name: marble-kernel
-          path: out/arch/arm64/boot/Image.gz
+          path: |
+            out/arch/arm64/boot/Image.gz
+            out/arch/arm64/boot/dts/**/*.dtb
+            out/arch/arm64/boot/dtbo.img
