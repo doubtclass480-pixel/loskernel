@@ -18,17 +18,19 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-            git wget curl bc bison flex \
+            git curl bc bison flex \
             gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi \
             libssl-dev build-essential lld llvm \
             python3 python3-pip zip unzip cpio jq
 
-      - name: Setup LLVM 21.0.0
+      - name: Setup Clang from custom URL
         run: |
-          wget -q https://github.com/llvm/llvm-project/releases/download/llvmorg-21.0.0/clang+llvm-21.0.0-x86_64-linux-gnu-ubuntu-22.04.tar.xz
-          tar -xf clang+llvm-21.0.0-x86_64-linux-gnu-ubuntu-22.04.tar.xz
-          mv clang+llvm-21.0.0-x86_64-linux-gnu-ubuntu-22.04 llvm-21
-          echo "${PWD}/llvm-21/bin" >> $GITHUB_PATH
+          mkdir -p prebuilts-master/clang/host/linux-x86
+          cd prebuilts-master/clang/host/linux-x86
+          wget -q https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/531a564ba5426707dee226eccb19f104a7af5a5f/clang-r563880c.tar.gz -O clang-r563880c.tar.gz
+          tar -xf clang-r563880c.tar.gz
+          mv +archive* clang-r563880c
+          cd ../../../../
 
       - name: Build Kernel (Image.gz)
         run: |
