@@ -3,7 +3,7 @@ name: Kernel Build (marble)
 on:
   push:
     branches:
-      - main
+      - main   # ganti ke "master" kalau repo kamu bukan pakai "main"
   workflow_dispatch:
 
 jobs:
@@ -28,3 +28,26 @@ jobs:
           mkdir -p prebuilts-master/clang/host/linux-x86
           cd prebuilts-master/clang/host/linux-x86
           wget -q https://github.com/llvm/llvm-project/releases/download/llvmorg-21.0.0/clang+llvm-21.0.0-x86_64-linux-gnu-ubuntu-22.04.tar.xz
+          tar -xf clang+llvm-21.0.0-x86_64-linux-gnu-ubuntu-22.04.tar.xz
+          mv clang+llvm-21.0.0-x86_64-linux-gnu-ubuntu-22.04 llvm-21
+          cd ../../../../
+
+      - name: Prepare .build.rc
+        run: |
+          echo "SRC_ROOT=$HOME/pa" > .build.rc
+
+      - name: Run build.sh
+        run: |
+          chmod +x build.sh
+          ./build.sh marble
+
+      - name: Upload kernel artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: marble-kernel
+          path: |
+            device/xiaomi/marble-kernel/Image
+            device/xiaomi/marble-kernel/dtbs/*.dtb
+            device/xiaomi/marble-kernel/dtbs/dtbo.img
+            device/xiaomi/marble-kernel/vendor_ramdisk/**
+            device/xiaomi/marble-kernel/vendor_dlkm/**
