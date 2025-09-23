@@ -25,24 +25,30 @@ jobs:
 
       - name: Setup Clang (r563880b)
         run: |
-          mkdir -p prebuilts-master/clang/host/linux-x86/clang-r563880b
-          cd prebuilts-master/clang/host/linux-x86/clang-r563880b
-          wget -q https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/67af9f576276f27363074c4388e2cf0963bab6df/clang-r563880b.tar.gz -O clang-r563880b.tar.gz
-          tar -xf clang-r563880b.tar.gz
-          rm clang-r563880b.tar.gz
-          cd ../../../../../
+          mkdir -p prebuilts-master/clang/host/linux-x86
+          cd prebuilts-master/clang/host/linux-x86
+          wget -q https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/67af9f576276f27363074c4388e2cf0963bab6df/clang-r563880b.tar.gz
+          mkdir clang-r563880b
+          tar -xf clang-r563880b.tar.gz -C clang-r563880b
+          cd ../../../../
+          echo "$(pwd)/prebuilts-master/clang/host/linux-x86/clang-r563880b/bin" >> $GITHUB_PATH
 
-      - name: Build Kernel (Image.gz)
+      - name: Build Kernel (Image.gz only)
         run: |
-          export PATH=$(pwd)/prebuilts-master/clang/host/linux-x86/clang-r563880b/bin:$PATH
-          make O=out ARCH=arm64 marble_defconfig
-          make O=out ARCH=arm64 CC=clang -j$(nproc)
+          mkdir -p out
+          make O=out ARCH=arm64 gki_defconfig
+          ./scripts/kconfig/merge_config.sh out/.config vendor/marble_GKI.config
+          make O=out ARCH=arm64 CC=clang -j$(nproc) Image.gz
 
-      - name: Upload kernel artifacts
+      - name: Clone AnyKernel3
+        run: |
+          git clone https://github.com/osm0sis/AnyKernel3.git
+          cp out/arch/arm64/boot/Image.gz AnyKernel3/
+          cd AnyKernel3
+          zip -r9 ../marble-kernel.zip ./*
+
+      - name: Upload Kernel ZIP
         uses: actions/upload-artifact@v4
         with:
-          name: marble-kernel
-          path: |
-            out/arch/arm64/boot/Image.gz
-            out/arch/arm64/boot/dts/**/*.dtb
-            out/arch/arm64/boot/dtbo.img
+          name: marble-kernel-zip
+          path: marble-kernel.zip
