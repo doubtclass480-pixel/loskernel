@@ -1,56 +1,58 @@
 name: build-kernel
 on:
   workflow_dispatch:
+
 env:
   CLANG_DIR: clang-r563880b
+
 jobs:
   build-ksu:
     runs-on: ubuntu-22.04
+
     steps:
-      - name: Free Disk Space (Ubuntu)
-        if: ${{ false }} # Set to true if space insufficient
-        uses: jlumbroso/free-disk-space@main
-        with:
-          tool-cache: true
-          android: true
-          dotnet: true
-          haskell: true
-          large-packages: true
-          docker-images: true
-          swap-storage: false
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Set Swap Space
         uses: pierotofy/set-swap-space@master
         with:
           swap-size-gb: 7
-      - name: Setup Python
-        uses: actions/setup-python@v5 
-        with:
-          python-version: 'pypy3.10'
+
       - name: Setup build environment
         run: |
           sudo apt-get update
-          sudo apt-get install -y bc device-tree-compiler
+          sudo apt-get install -y \
+            bc device-tree-compiler git curl unzip zip \
+            python3 python3-pip python-is-python3
+
           sudo curl --create-dirs -o /usr/local/bin/repo -L https://storage.googleapis.com/git-repo-downloads/repo
           sudo chmod a+rx /usr/local/bin/repo
+
       - name: Clone repo and sync
         run: |
           repo init -u https://github.com/bryanyee33/kernel_manifest -b uvite-xiaomi-sm8450 --depth=1
-          repo sync
+          repo sync -c --no-tags --no-clone-bundle -j$(nproc)
           mkdir -p kernel_platform/device/xiaomi/marble-kernel/dtbs
+
       - name: Setup clang
-      # git clone --filter & git sparse-checkout to only download required directory
         run: |
           mkdir -p kernel_platform/clang
           cd kernel_platform/clang
           git clone -n --depth=1 --filter=tree:0 -b main-kernel --single-branch \
-              https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86 .
+            https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86 .
           git sparse-checkout set --no-cone "/$CLANG_DIR"
           git checkout
+
       - name: Include KSU
         run: |
           cd kernel_platform/xiaomi/sm8450
-          rmdir KernelSU
+          rm -rf KernelSU || true
           curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh" | bash -
+
+      - name: Clone susfs4ksu
+        run: |
+          git clone --depth=1 https://github.com/yourusername/susfs4ksu.git susfs4ksu
+
       - name: Include SUS-FS
         run: |
           HOME="$(pwd)"
@@ -62,61 +64,39 @@ jobs:
           cd $HOME/susfs4ksu
           ./build_ksu_module.sh
           mv ksu_module_susfs.zip ..
+
       - name: Include other KSU manager signatures
         run: |
           sed -i '/return (check_v2_signature(path, EXPECTED_SIZE, EXPECTED_HASH) ||/a\
               check_v2_signature(path, 0x363, "4359c171f32543394cbc23ef908c4bb94cad7c8087002ba164c8230948c21549") /*dummy.keystore*/ || \
               check_v2_signature(path, 0x3e6, "79e590113c4c4c0c222978e413a5faa801666957b1212a328e46c00c69821bf7") /*KernelSU-Next*/ || \
-              \' kernel_platform/xiaomi/sm8450/KernelSU/kernel/apk_sign.c
+              ' kernel_platform/xiaomi/sm8450/KernelSU/kernel/apk_sign.c
+
       - name: Build kernel
         run: |
           cd kernel_platform/xiaomi/sm8450
           ./build.sh marble
+
       - name: Zip output
         run: |
           git clone --depth=1 -b marble https://github.com/bryanyee33/AnyKernel3.git AnyKernel3-marble
           cd AnyKernel3-marble
           cp ../kernel_platform/device/xiaomi/marble-kernel/Image .
-          rm -r .git README.md
-          find . -type f -name 'placeholder' -delete
-          find . -type d -empty -delete
-          zip -r9 "../marble-kernel.zip" *
+          zip -r9 ../marble-kernel.zip *
 
-          cd ..
-          git clone --depth=1 -b pzqqt https://github.com/bryanyee33/AnyKernel3.git AnyKernel3-pzqqt
-          cd AnyKernel3-pzqqt
-          cp ../kernel_platform/device/xiaomi/marble-kernel/Image .
-          cp ../kernel_platform/device/xiaomi/marble-kernel/dtbs/dtbo.img .
-          cp ../kernel_platform/device/xiaomi/marble-kernel/dtbs/ukee.dtb ./dtb
-          cp -r ../kernel_platform/device/xiaomi/marble-kernel/vendor_dlkm ./_vendor_dlkm_modules
-          cp -r ../kernel_platform/device/xiaomi/marble-kernel/vendor_ramdisk ./_vendor_boot_modules
-          rm -r .git README.md
-          find . -type f -name 'placeholder' -delete
-          find . -type d -empty -delete
       - name: Generate release tag
         id: tag
         run: echo "release_tag=AOSPA_KSU_GKI_$(date +'%Y.%m.%d')" >> "$GITHUB_OUTPUT"
+
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.tag.outputs.release_tag }}
           files: |
             marble-kernel.zip
-      - name: Upload ksu_module_susfs artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: ksu_module_susfs
-          path: susfs4ksu/ksu_module_susfs/*
-          compression-level: 9
-      - name: Upload marble-kernel artifact
+
+      - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: marble-kernel
-          path: AnyKernel3-marble/*
-          compression-level: 9
-      - name: Upload blobs artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: marble-kernel-blobs
-          path: AnyKernel3-pzqqt/*
-          compression-level: 9
+          path: marble-kernel.zip
