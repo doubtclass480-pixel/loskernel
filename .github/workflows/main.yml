@@ -1,31 +1,26 @@
-name: Build Kernel
+name: Kernel Build
 
 on:
-  workflow_dispatch:   # bisa dijalankan manual dari tab Actions
+  workflow_dispatch:
 
 jobs:
   build:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout source
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Install dependencies
-  run: |
-    sudo apt update
-    sudo apt install -y \
-      clang lld llvm \
-      gcc-aarch64-linux-gnu libc6-dev \
-      device-tree-compiler bc bison flex libssl-dev
-            git device-tree-compiler lz4 xz-utils zlib1g-dev openjdk-17-jdk \
-            gcc g++ python3 python-is-python3 p7zip-full \
-            android-sdk-libsparse-utils erofs-utils flex bison gperf \
-            build-essential zip curl libc6-dev libncurses-dev libx11-dev \
-            libreadline-dev libgl1-mesa-dev bc cpio kmod \
-            openssl libelf-dev pahole libssl-dev zstd
+        run: |
+          sudo apt update
+          sudo apt install -y \
+            git make clang lld llvm \
+            gcc-aarch64-linux-gnu libc6-dev \
+            device-tree-compiler bc bison flex libssl-dev \
+            build-essential curl wget unzip
 
-      - name: Run build.sh
+      - name: Run build script
         run: |
           chmod +x build.sh
           ./build.sh
