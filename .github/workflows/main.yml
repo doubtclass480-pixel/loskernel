@@ -12,11 +12,12 @@ jobs:
         uses: actions/checkout@v3
 
       - name: Install dependencies
-        run: |
-          sudo apt update
-          sudo apt install -y \
-            clang lld llvm \
-            gcc-aarch64-linux-gnu libc6-dev
+  run: |
+    sudo apt update
+    sudo apt install -y \
+      clang lld llvm \
+      gcc-aarch64-linux-gnu libc6-dev \
+      device-tree-compiler bc bison flex libssl-dev
             git device-tree-compiler lz4 xz-utils zlib1g-dev openjdk-17-jdk \
             gcc g++ python3 python-is-python3 p7zip-full \
             android-sdk-libsparse-utils erofs-utils flex bison gperf \
