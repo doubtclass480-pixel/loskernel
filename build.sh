@@ -22,13 +22,13 @@ build_kernel(){
     make -C ${KERNEL_ROOT} O=${KERNEL_ROOT}/out \
         ARCH=arm64 LLVM=1 LLVM_IAS=1 \
         CROSS_COMPILE=${BUILD_CROSS_COMPILE} \
-        CC=${BUILD_CC} -j$(nproc) gki_defconfig
+        CC=${BUILD_CC} -j2 gki_defconfig
 
     # langsung build kernel (skip menuconfig biar nggak error terminal size)
     make -C ${KERNEL_ROOT} O=${KERNEL_ROOT}/out \
         ARCH=arm64 LLVM=1 LLVM_IAS=1 \
         CROSS_COMPILE=${BUILD_CROSS_COMPILE} \
-        CC=${BUILD_CC} -j$(nproc) Image || exit 1
+        CC=${BUILD_CC} -j2 Image || exit 1
 
     # copy hasil
     cp "${KERNEL_ROOT}/out/arch/arm64/boot/Image" "${KERNEL_ROOT}/build"
